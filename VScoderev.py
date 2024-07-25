@@ -14,7 +14,7 @@ nltk.download('stopwords')
 
 #Converts text to lowercase.
 #Tokenizes the text into words.
-#Removes non-alphabetical tokens and stopwords.
+#Removes non-alphabetical tokens and stopwords (punctuation).
 def preprocess(text):
     stop_words = set(stopwords.words('english'))
     tokens = word_tokenize(text.lower())
