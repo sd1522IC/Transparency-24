@@ -5,23 +5,29 @@ from gensim import corpora, models
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import nltk
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
+import plotly.express as px
+import plotly.graph_objects as go
 
 nltk.download('punkt')
 nltk.download('stopwords')
 
-#Converts text to lowercase.
-#Tokenizes the text into words.
-#Removes non-alphabetical tokens and stopwords (punctuation).
+# Converts text to lowercase.
+# Tokenizes the text into words.
+# Removes non-alphabetical tokens and stopwords (punctuation).
 def preprocess(text):
     stop_words = set(stopwords.words('english'))
     tokens = word_tokenize(text.lower())
     tokens = [word for word in tokens if word.isalpha() and word not in stop_words]
     return tokens
 
+<<<<<<< HEAD
 
+=======
+# load_texts_from_folder(folder_path): Reads and preprocesses text files from a specified folder.
+# Lists all files in the folder.
+# Opens each .txt file, preprocesses the text, and stores it in a list.
+>>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
 def load_texts_from_folder(folder_path):
     texts = []
     file_paths = []
@@ -36,13 +42,30 @@ def load_texts_from_folder(folder_path):
                 print(f"An error occurred while reading {file_path}: {e}")
     return texts, file_paths
 
+<<<<<<< HEAD
 def perform_lda(texts, num_topics=3):
+=======
+# perform_lda(texts, num_topics=3): Performs Latent Dirichlet Allocation (LDA) on the preprocessed texts.
+# Creates a dictionary and corpus from the texts.
+# Fits an LDA model to the corpus.
+def perform_lda(texts, num_topics=20):
+>>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
     dictionary = corpora.Dictionary(texts)
     corpus = [dictionary.doc2bow(text) for text in texts]
     lda_model = models.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=15, alpha='auto', eta='auto', random_state=42)
     return lda_model, dictionary, corpus
 
+<<<<<<< HEAD
 def plot_lda_3d(lda_model, corpus, file_paths):
+=======
+# plot_lda_2d(lda_model, corpus, file_paths): Plots the LDA topic distributions in 2D space.
+# Gets topic distributions for each document.
+# Converts the topic distributions to a matrix.
+# Uses PCA to reduce the matrix to 2 dimensions.
+# Prints the 2D coordinates of each document.
+# Plots the documents in a 2D scatter plot with interactive hover functionality.
+def plot_lda_2d(lda_model, corpus, file_paths):
+>>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
     topic_distributions = [lda_model.get_document_topics(doc, minimum_probability=0) for doc in corpus]
     
     topic_matrix = []
@@ -51,32 +74,80 @@ def plot_lda_3d(lda_model, corpus, file_paths):
     
     topic_matrix = np.array(topic_matrix)
 
-    pca = PCA(n_components=3)
-    topic_matrix_3d = pca.fit_transform(topic_matrix)
+    pca = PCA(n_components=2)
+    topic_matrix_2d = pca.fit_transform(topic_matrix)
 
     print("Position vectors of the coordinates:")
-    for i, vec in enumerate(topic_matrix_3d):
+    for i, vec in enumerate(topic_matrix_2d):
         print(f"Document {file_paths[i]}: {vec}")
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+    # Define colors based on filename prefixes
+    color_map = {
+        'G_': 'red',      # Red for G_
+        'FT_': 'green',   # Green for FT_
+        'GB_': 'blue',    # Blue for GB_
+        'Areseblog_': 'magenta' # Magenta for Areseblog_
+    }
     
-    colors = ['r', 'g', 'b']
+    # Assign default color for files without a specific prefix
+    default_color = 'black' # Black
     
-    for i, vec in enumerate(topic_matrix_3d):
-        ax.scatter(vec[0], vec[1], vec[2], color=colors[i % len(colors)], label=file_paths[i])
+    colors = []
+    labels = []
+    for file_path in file_paths:
+        file_name = os.path.basename(file_path)
+        color = default_color
+        label = 'Other'
+        for prefix, col in color_map.items():
+            if file_name.startswith(prefix):
+                color = col
+                label = prefix
+                break
+        colors.append(color)
+        labels.append(label)
 
-    handles, labels = ax.get_legend_handles_labels()
-    unique_labels = dict(zip(labels, handles))
-    ax.legend(unique_labels.values(), unique_labels.keys())
+    df = pd.DataFrame({
+        'x': topic_matrix_2d[:, 0],
+        'y': topic_matrix_2d[:, 1],
+        'color': colors,
+        'label': labels,
+        'file_path': file_paths
+    })
 
-    ax.set_title('3D Dirichlet Distribution of LDA Topic Vectors', fontname='Times New Roman', fontsize=12)
-    ax.set_xlabel('PCA Component 1', fontname='Times New Roman', fontsize=10)
-    ax.set_ylabel('PCA Component 2', fontname='Times New Roman', fontsize=10)
-    ax.set_zlabel('PCA Component 3', fontname='Times New Roman', fontsize=10)
+    fig = px.scatter(df, x='x', y='y', color='label', hover_data=['file_path'],
+                     color_discrete_map=color_map, labels={'label': 'Document Type'})
+    
+    fig.update_layout(
+        title='2D Dirichlet Distribution of LDA Topic Vectors',
+        xaxis_title='PCA Component 1',
+        yaxis_title='PCA Component 2',
+        font=dict(
+            family='Times New Roman',
+            size=12
+        ),
+        legend_title_text='Document Type',
+        legend=dict(
+            x=1.05,
+            y=1,
+            traceorder='normal',
+            bgcolor='rgba(0,0,0,0)',
+            bordercolor='rgba(0,0,0,0)'
+        )
+    )
 
-    plt.show()
+    fig.show()
 
+<<<<<<< HEAD
+=======
+# main(): The main function to execute the script.
+# Sets the folder path containing text files.
+# Loads and preprocesses the texts from the folder.
+# Checks if any texts were loaded; if not, it exits.
+# Performs LDA on the texts.
+# Prints the topics found by LDA.
+# Optionally saves the topics to a CSV file.
+# Calls the function to plot the 2D visualization of the topic distributions.
+>>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
 def main():
     folder_path = 'texts'  # Folder containing the text files
     
@@ -103,9 +174,9 @@ def main():
     topics_df = pd.DataFrame(topics_data)
     topics_df.to_csv('lda_topics.csv', index=False)
     
-    # Plot 3D visualization
-    plot_lda_3d(lda_model, corpus, file_paths)
-    print('The magnitue of the vector element is the proportion of the document predicted to talk about this topic. The direction is ')
+    # Plot 2D visualization
+    plot_lda_2d(lda_model, corpus, file_paths)
+    print('The magnitude of the vector element is the proportion of the document predicted to talk about this topic. The direction is ')
 
 if __name__ == "__main__":
     main()
