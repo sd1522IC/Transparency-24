@@ -178,7 +178,7 @@ def main():
     plot_lda_2d(lda_model, corpus, file_paths)
     print('The magnitude of the vector element is the proportion of the document predicted to talk about this topic. The direction is ')
 
-#test
+#test gbby
 
 if __name__ == "__main__":
     main()
