@@ -40,7 +40,7 @@ def load_texts_from_folder(folder_path):
 # perform_lda(texts, num_topics=3): Performs Latent Dirichlet Allocation (LDA) on the preprocessed texts.
 # Creates a dictionary and corpus from the texts.
 # Fits an LDA model to the corpus.
-def perform_lda(texts, num_topics=3):
+def perform_lda(texts, num_topics=4):
     dictionary = corpora.Dictionary(texts)
     corpus = [dictionary.doc2bow(text) for text in texts]
     lda_model = models.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=15, alpha='auto', eta='auto', random_state=42)
@@ -142,16 +142,17 @@ def main():
         print("No texts loaded. Exiting.")
         return
     
-    # Perform LDA
-    lda_model, dictionary, corpus = perform_lda(texts, num_topics=3)
+    # Perform LDA with the specified number of topics
+    num_topics = 4  # Change this value to set the number of topics
+    lda_model, dictionary, corpus = perform_lda(texts, num_topics=num_topics)
     
     # Print the topics
-    for idx, topic in lda_model.print_topics(-1):
-        print('Topic: {} \nWords: {}'.format(idx, topic))
+    for idx, topic in lda_model.print_topics(num_topics):
+        print(f'Topic: {idx} \nWords: {topic}')
         
     # Optional: Save topics to a CSV
     topics_data = {'Topic': [], 'Words': []}
-    for idx, topic in lda_model.print_topics(-1):
+    for idx, topic in lda_model.print_topics(num_topics):
         topics_data['Topic'].append(idx)
         topics_data['Words'].append(topic)
     
@@ -162,7 +163,6 @@ def main():
     plot_lda_2d(lda_model, corpus, file_paths)
     print('The magnitude of the vector element is the proportion of the document predicted to talk about this topic. The direction is ')
 
-#test
-
+# Execute the main function if this script is run directly
 if __name__ == "__main__":
     main()
