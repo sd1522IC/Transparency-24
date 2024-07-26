@@ -7,7 +7,6 @@ from nltk.tokenize import word_tokenize
 import nltk
 from sklearn.decomposition import PCA
 import plotly.express as px
-import plotly.graph_objects as go
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -21,13 +20,9 @@ def preprocess(text):
     tokens = [word for word in tokens if word.isalpha() and word not in stop_words]
     return tokens
 
-<<<<<<< HEAD
-
-=======
 # load_texts_from_folder(folder_path): Reads and preprocesses text files from a specified folder.
 # Lists all files in the folder.
 # Opens each .txt file, preprocesses the text, and stores it in a list.
->>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
 def load_texts_from_folder(folder_path):
     texts = []
     file_paths = []
@@ -42,22 +37,15 @@ def load_texts_from_folder(folder_path):
                 print(f"An error occurred while reading {file_path}: {e}")
     return texts, file_paths
 
-<<<<<<< HEAD
-def perform_lda(texts, num_topics=3):
-=======
 # perform_lda(texts, num_topics=3): Performs Latent Dirichlet Allocation (LDA) on the preprocessed texts.
 # Creates a dictionary and corpus from the texts.
 # Fits an LDA model to the corpus.
-def perform_lda(texts, num_topics=20):
->>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
+def perform_lda(texts, num_topics=3):
     dictionary = corpora.Dictionary(texts)
     corpus = [dictionary.doc2bow(text) for text in texts]
     lda_model = models.LdaModel(corpus, num_topics=num_topics, id2word=dictionary, passes=15, alpha='auto', eta='auto', random_state=42)
     return lda_model, dictionary, corpus
 
-<<<<<<< HEAD
-def plot_lda_3d(lda_model, corpus, file_paths):
-=======
 # plot_lda_2d(lda_model, corpus, file_paths): Plots the LDA topic distributions in 2D space.
 # Gets topic distributions for each document.
 # Converts the topic distributions to a matrix.
@@ -65,7 +53,6 @@ def plot_lda_3d(lda_model, corpus, file_paths):
 # Prints the 2D coordinates of each document.
 # Plots the documents in a 2D scatter plot with interactive hover functionality.
 def plot_lda_2d(lda_model, corpus, file_paths):
->>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
     topic_distributions = [lda_model.get_document_topics(doc, minimum_probability=0) for doc in corpus]
     
     topic_matrix = []
@@ -137,8 +124,6 @@ def plot_lda_2d(lda_model, corpus, file_paths):
 
     fig.show()
 
-<<<<<<< HEAD
-=======
 # main(): The main function to execute the script.
 # Sets the folder path containing text files.
 # Loads and preprocesses the texts from the folder.
@@ -147,7 +132,6 @@ def plot_lda_2d(lda_model, corpus, file_paths):
 # Prints the topics found by LDA.
 # Optionally saves the topics to a CSV file.
 # Calls the function to plot the 2D visualization of the topic distributions.
->>>>>>> b7ef470 (Woke_Nonsense_Smith_Rowe1)
 def main():
     folder_path = 'texts'  # Folder containing the text files
     
@@ -177,8 +161,6 @@ def main():
     # Plot 2D visualization
     plot_lda_2d(lda_model, corpus, file_paths)
     print('The magnitude of the vector element is the proportion of the document predicted to talk about this topic. The direction is ')
-
-#test gbby
 
 if __name__ == "__main__":
     main()
