@@ -186,7 +186,7 @@ def main():
         print(f'Topic: {idx} \nWords: {topic}')
         
     # Optional: Save topics to a CSV
-    topics_data = {'Topteic': [], 'Words': []}
+    topics_data = {'Topic': [], 'Words': []}
     for idx, topic in lda_model.print_topics(num_topics):
         topics_data['Topic'].append(idx)
         topics_data['Words'].append(topic)
