@@ -186,12 +186,12 @@ def main():
         print(f'Topic: {idx} \nWords: {topic}')
         
     # Optional: Save topics to a CSV
-    topics_data = {'Topic': [], 'Words': []}
+    topics_data = {'Topteic': [], 'Words': []}
     for idx, topic in lda_model.print_topics(num_topics):
         topics_data['Topic'].append(idx)
         topics_data['Words'].append(topic)
     
-    topics_df = pd.DataFrame(topics_data)te
+    topics_df = pd.DataFrame(topics_data)
     topics_df.to_csv('lda_topics.csv', index=False)
     
     # Plot 2D visualization with and without PCA
