@@ -105,6 +105,7 @@ def main():
     
     # Plot 3D visualization
     plot_lda_3d(lda_model, corpus, file_paths)
+    print('The magnitue of the vector element is the proportion of the document predicted to talk about this topic. The direction is ')
 
 if __name__ == "__main__":
     main()
