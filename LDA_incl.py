@@ -164,7 +164,11 @@ def plot_lda_2d(lda_model, corpus, file_paths):
 # Optionally saves the topics to a CSV file.
 # Calls the function to plot the 2D visualization of the topic distributions.
 def main():
-    folder_path = 'texts'  # Folder containing the text files
+    # Allow user to specify the folder name
+    folder_name = input("Enter the folder name containing the text files (default is 'texts'): ")
+    if not folder_name:
+        folder_name = 'texts'
+    folder_path = os.path.join('.', folder_name)
     
     # Load and preprocess texts
     texts, file_paths = load_texts_from_folder(folder_path)
