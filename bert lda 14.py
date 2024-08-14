@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-import torch  # Add this import to use torch tensor operations
+import torch
 from gensim import corpora, models
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -15,6 +15,7 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import torch.nn.functional as F
+from collections import Counter
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -72,14 +73,13 @@ class SentimentAnalyzer:
             for chunk in chunks:
                 logits = self.sentiment_pipeline(chunk, return_all_scores=True)[0]
                 scores = self.softmax_with_temperature(torch.tensor([score['score'] for score in logits]), temperature)
-                predicted_label = 'POSITIVE' if scores[1] > scores[0] else 'NEGATIVE'
-                chunk_sentiments.append(predicted_label)
+                # Use the continuous score for POSITIVE class (index 1)
+                chunk_sentiments.append(scores[1].item())
             all_sentiments.extend(chunk_sentiments)
             all_files.extend([file_path] * len(chunk_sentiments))
             all_chunks.extend([f"Chunk {i+1}" for i in range(len(chunk_sentiments))])
         
-        sentiment_scores = [1 if s == 'POSITIVE' else -1 for s in all_sentiments]
-        return sentiment_scores, all_files, all_chunks
+        return all_sentiments, all_files, all_chunks
 
 class TopicModeler:
     def __init__(self):
@@ -98,9 +98,29 @@ class TopicModeler:
         topic_matrix = np.array([[topic[1] for topic in dist] for dist in topic_distributions])
         pca = PCA(n_components=2, random_state=42)
         pca_result = pca.fit_transform(topic_matrix)
-        return lda_model, pca_result, topic_matrix
 
-    def plot_lda_pca(self, pca_result, topic_matrix, file_paths):
+        # Attempt to name topics
+        topic_names, pca_labels = self.name_pca_topics(lda_model, num_words=5)
+        
+        return lda_model, pca_result, topic_matrix, topic_names, pca_labels
+
+    def name_pca_topics(self, lda_model, num_words=5):
+        topics = lda_model.show_topics(num_words=num_words, formatted=False)
+        topic_names = []
+        pca_labels = {"x_label": "", "y_label": ""}
+        for topic in topics:
+            topic_name = ", ".join([word[0] for word in topic[1]])
+            topic_names.append(topic_name)
+            
+            # Assign PCA axis labels based on the highest scoring word for each topic
+            if topic[0] == 0:  # Assume topic 0 corresponds to PCA component 1
+                pca_labels["x_label"] = topic[1][0][0]  # Top word for PCA1
+            elif topic[0] == 1:  # Assume topic 1 corresponds to PCA component 2
+                pca_labels["y_label"] = topic[1][0][0]  # Top word for PCA2
+
+        return topic_names, pca_labels
+
+    def plot_lda_pca(self, pca_result, topic_matrix, file_paths, topic_names, pca_labels):
         df_pca = pd.DataFrame({
             'x': pca_result[:, 0],
             'y': pca_result[:, 1],
@@ -110,9 +130,20 @@ class TopicModeler:
         fig_pca = px.scatter(df_pca, x='x', y='y', hover_data=['file_path'])
         fig_pca.update_layout(
             title='PCA of LDA Topic Distribution',
-            xaxis_title='Principal Component 1',
-            yaxis_title='Principal Component 2'
+            xaxis_title=f'PCA1: {pca_labels["x_label"]}',
+            yaxis_title=f'PCA2: {pca_labels["y_label"]}'
         )
+
+        # Add topic names as annotations
+        for i, topic_name in enumerate(topic_names):
+            fig_pca.add_annotation(
+                x=df_pca['x'].mean(),
+                y=df_pca['y'].mean(),
+                text=f'Topic {i}: {topic_name}',
+                showarrow=False,
+                yshift=10
+            )
+
         fig_pca.show()
 
     def plot_bertopic_2d(self, topics, probs, raw_texts, sentiments, files, chunks):
@@ -120,11 +151,9 @@ class TopicModeler:
         tsne_model = TSNE(n_components=2, random_state=42, perplexity=min(30, len(raw_texts)-1))
         tsne_embeddings = tsne_model.fit_transform(embeddings)
 
-        normalized_sentiments = [(score + 1) / 2 for score in sentiments]
-
         df_tsne = pd.DataFrame(tsne_embeddings, columns=['x', 'y'])
         df_tsne['topic'] = topics
-        df_tsne['sentiment'] = normalized_sentiments
+        df_tsne['sentiment'] = sentiments
         df_tsne['file'] = files
         df_tsne['chunk'] = chunks
 
@@ -182,10 +211,10 @@ class TextAnalysisPipeline:
         raw_texts = [open(file, 'r', encoding='utf-8').read() for file in file_paths]
         sentiments, files, chunks = self.sentiment_analyzer.advanced_sentiment_analysis(raw_texts, file_paths, self.temperature)
         topics, probs = self.topic_modeler.perform_bertopic(texts, raw_texts)
-        lda_model, pca_result, topic_matrix = self.topic_modeler.perform_lda_pca(texts)
+        lda_model, pca_result, topic_matrix, topic_names, pca_labels = self.topic_modeler.perform_lda_pca(texts)
 
         self.topic_modeler.plot_bertopic_2d(topics, probs, raw_texts, sentiments, files, chunks)
-        self.topic_modeler.plot_lda_pca(pca_result, topic_matrix, file_paths)
+        self.topic_modeler.plot_lda_pca(pca_result, topic_matrix, file_paths, topic_names, pca_labels)
         self.topic_modeler.plot_bertopic_wordcloud()
 
 if __name__ == "__main__":
