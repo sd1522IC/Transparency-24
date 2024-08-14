@@ -80,6 +80,22 @@ class SentimentAnalyzer:
         
         return all_sentiments, all_files, all_chunks
 
+    def plot_sentiment_scores(self, sentiments, file_paths):
+        # Simple scatter plot of sentiment scores
+        df_sentiment = pd.DataFrame({
+            'Sentiment Score': sentiments,
+            'file_path': file_paths
+        })
+
+        fig_sentiment = px.scatter(df_sentiment, x=range(len(sentiments)), y='Sentiment Score', hover_data=['file_path'])
+        fig_sentiment.update_layout(
+            title='Sentiment Scores',
+            xaxis_title='Document Index',
+            yaxis_title='Sentiment Score'
+        )
+
+        fig_sentiment.show()
+
 class TopicModeler:
     def __init__(self):
         self.vectorizer_model = TfidfVectorizer(stop_words='english')
@@ -98,19 +114,29 @@ class TopicModeler:
         pca = PCA(n_components=2, random_state=42)
         pca_result = pca.fit_transform(topic_matrix)
 
-        # Attempt to name topics
+        # Get the most significant word for each PCA axis
         pca_labels = self.get_pca_axis_labels(lda_model)
         
         return lda_model, pca_result, topic_matrix, pca_labels
 
     def get_pca_axis_labels(self, lda_model):
-        topics = lda_model.show_topics(num_words=1, formatted=False)
+        # Get the top word for each PCA axis
+        topics = lda_model.show_topics(num_topics=2, num_words=1, formatted=False)
         pca_labels = {"x_label": "", "y_label": ""}
         if len(topics) > 0:
-            pca_labels["x_label"] = topics[0][1][0][0]  # Top word for PCA1 (assume topic 0)
+            pca_labels["x_label"] = topics[0][1][0][0]  # Top word for PCA1
         if len(topics) > 1:
-            pca_labels["y_label"] = topics[1][1][0][0]  # Top word for PCA2 (assume topic 1)
+            pca_labels["y_label"] = topics[1][1][0][0]  # Top word for PCA2
         return pca_labels
+
+    def perform_tsne_on_lda(self, topic_matrix):
+        tsne_model = TSNE(n_components=2, random_state=42, perplexity=min(30, len(topic_matrix)-1))
+        tsne_result = tsne_model.fit_transform(topic_matrix)
+        return tsne_result
+
+class Plotter:
+    def __init__(self):
+        pass
 
     def plot_lda_pca(self, pca_result, file_paths, pca_labels):
         df_pca = pd.DataFrame({
@@ -128,8 +154,24 @@ class TopicModeler:
 
         fig_pca.show()
 
-    def plot_bertopic_2d(self, topics, probs, raw_texts, sentiments, files, chunks):
-        embeddings = self.topic_model.embedding_model.embedding_model.encode(raw_texts)
+    def plot_tsne_lda(self, tsne_result, file_paths):
+        df_tsne = pd.DataFrame({
+            'x': tsne_result[:, 0],
+            'y': tsne_result[:, 1],
+            'file_path': file_paths
+        })
+
+        fig_tsne = px.scatter(df_tsne, x='x', y='y', hover_data=['file_path'])
+        fig_tsne.update_layout(
+            title='t-SNE of LDA Topic Distributions',
+            xaxis_title='t-SNE Component 1',
+            yaxis_title='t-SNE Component 2'
+        )
+
+        fig_tsne.show()
+
+    def plot_bertopic_2d(self, topic_model, topics, probs, raw_texts, sentiments, files, chunks):
+        embeddings = topic_model.embedding_model.embedding_model.encode(raw_texts)
         tsne_model = TSNE(n_components=2, random_state=42, perplexity=min(30, len(raw_texts)-1))
         tsne_embeddings = tsne_model.fit_transform(embeddings)
 
@@ -148,10 +190,10 @@ class TopicModeler:
         )
         fig_tsne.show()
 
-    def plot_bertopic_wordcloud(self):
-        topic_freq = self.topic_model.get_topic_freq()
+    def plot_bertopic_wordcloud(self, topic_model):
+        topic_freq = topic_model.get_topic_freq()
         for topic in topic_freq['Topic']:
-            words = self.topic_model.get_topic(topic)
+            words = topic_model.get_topic(topic)
             wc = WordCloud(width=800, height=400, max_words=10).generate(' '.join([word[0] for word in words]))
             plt.figure()
             plt.imshow(wc, interpolation='bilinear')
@@ -166,6 +208,7 @@ class TextAnalysisPipeline:
         self.text_processor = TextProcessor()
         self.sentiment_analyzer = SentimentAnalyzer()
         self.topic_modeler = TopicModeler()
+        self.plotter = Plotter()
 
     def get_user_input(self):
         # Prompt the user for the folder name
@@ -195,9 +238,19 @@ class TextAnalysisPipeline:
         topics, probs = self.topic_modeler.perform_bertopic(texts, raw_texts)
         lda_model, pca_result, topic_matrix, pca_labels = self.topic_modeler.perform_lda_pca(texts)
 
-        self.topic_modeler.plot_bertopic_2d(topics, probs, raw_texts, sentiments, files, chunks)
-        self.topic_modeler.plot_lda_pca(pca_result, file_paths, pca_labels)
-        self.topic_modeler.plot_bertopic_wordcloud()
+        # Plotting
+        self.plotter.plot_bertopic_2d(self.topic_modeler.topic_model, topics, probs, raw_texts, sentiments, files, chunks)
+        self.plotter.plot_lda_pca(pca_result, file_paths, pca_labels)
+
+        # Plot Sentiment Scores
+        self.sentiment_analyzer.plot_sentiment_scores(sentiments, files)
+
+        # t-SNE on LDA
+        tsne_lda_result = self.topic_modeler.perform_tsne_on_lda(topic_matrix)
+        self.plotter.plot_tsne_lda(tsne_lda_result, file_paths)
+
+        # Plot BERTopic WordCloud
+        self.plotter.plot_bertopic_wordcloud(self.topic_modeler.topic_model)
 
 if __name__ == "__main__":
     pipeline = TextAnalysisPipeline()
