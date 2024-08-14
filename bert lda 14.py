@@ -15,7 +15,6 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 import torch.nn.functional as F
-from collections import Counter
 
 nltk.download('punkt')
 nltk.download('stopwords')
@@ -100,27 +99,20 @@ class TopicModeler:
         pca_result = pca.fit_transform(topic_matrix)
 
         # Attempt to name topics
-        topic_names, pca_labels = self.name_pca_topics(lda_model, num_words=5)
+        pca_labels = self.get_pca_axis_labels(lda_model)
         
-        return lda_model, pca_result, topic_matrix, topic_names, pca_labels
+        return lda_model, pca_result, topic_matrix, pca_labels
 
-    def name_pca_topics(self, lda_model, num_words=5):
-        topics = lda_model.show_topics(num_words=num_words, formatted=False)
-        topic_names = []
+    def get_pca_axis_labels(self, lda_model):
+        topics = lda_model.show_topics(num_words=1, formatted=False)
         pca_labels = {"x_label": "", "y_label": ""}
-        for topic in topics:
-            topic_name = ", ".join([word[0] for word in topic[1]])
-            topic_names.append(topic_name)
-            
-            # Assign PCA axis labels based on the highest scoring word for each topic
-            if topic[0] == 0:  # Assume topic 0 corresponds to PCA component 1
-                pca_labels["x_label"] = topic[1][0][0]  # Top word for PCA1
-            elif topic[0] == 1:  # Assume topic 1 corresponds to PCA component 2
-                pca_labels["y_label"] = topic[1][0][0]  # Top word for PCA2
+        if len(topics) > 0:
+            pca_labels["x_label"] = topics[0][1][0][0]  # Top word for PCA1 (assume topic 0)
+        if len(topics) > 1:
+            pca_labels["y_label"] = topics[1][1][0][0]  # Top word for PCA2 (assume topic 1)
+        return pca_labels
 
-        return topic_names, pca_labels
-
-    def plot_lda_pca(self, pca_result, topic_matrix, file_paths, topic_names, pca_labels):
+    def plot_lda_pca(self, pca_result, file_paths, pca_labels):
         df_pca = pd.DataFrame({
             'x': pca_result[:, 0],
             'y': pca_result[:, 1],
@@ -133,16 +125,6 @@ class TopicModeler:
             xaxis_title=f'PCA1: {pca_labels["x_label"]}',
             yaxis_title=f'PCA2: {pca_labels["y_label"]}'
         )
-
-        # Add topic names as annotations
-        for i, topic_name in enumerate(topic_names):
-            fig_pca.add_annotation(
-                x=df_pca['x'].mean(),
-                y=df_pca['y'].mean(),
-                text=f'Topic {i}: {topic_name}',
-                showarrow=False,
-                yshift=10
-            )
 
         fig_pca.show()
 
@@ -211,10 +193,10 @@ class TextAnalysisPipeline:
         raw_texts = [open(file, 'r', encoding='utf-8').read() for file in file_paths]
         sentiments, files, chunks = self.sentiment_analyzer.advanced_sentiment_analysis(raw_texts, file_paths, self.temperature)
         topics, probs = self.topic_modeler.perform_bertopic(texts, raw_texts)
-        lda_model, pca_result, topic_matrix, topic_names, pca_labels = self.topic_modeler.perform_lda_pca(texts)
+        lda_model, pca_result, topic_matrix, pca_labels = self.topic_modeler.perform_lda_pca(texts)
 
         self.topic_modeler.plot_bertopic_2d(topics, probs, raw_texts, sentiments, files, chunks)
-        self.topic_modeler.plot_lda_pca(pca_result, topic_matrix, file_paths, topic_names, pca_labels)
+        self.topic_modeler.plot_lda_pca(pca_result, file_paths, pca_labels)
         self.topic_modeler.plot_bertopic_wordcloud()
 
 if __name__ == "__main__":
