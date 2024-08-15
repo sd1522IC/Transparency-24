@@ -1,44 +1,37 @@
 import os
+import json
+import nltk
 import pandas as pd
 import numpy as np
-import torch
-from gensim import corpora, models
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-import nltk
+from transformers import pipeline
+from bertopic import BERTopic
+from gensim import corpora, models
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 from sklearn.feature_extraction.text import TfidfVectorizer
-from transformers import pipeline
-from bertopic import BERTopic
 import plotly.express as px
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
-import torch.nn.functional as F
-from joblib import Parallel, delayed
-import json
-import seaborn as sns
-import dash
-import dash_core_components as dcc
-import dash_html_components as html
+import torch  # Import torch for softmax operations
 
 nltk.download('punkt', quiet=True)
 nltk.download('stopwords', quiet=True)
 
-# Configuration management
-with open('config.json', 'r') as config_file:
+# Load configuration
+current_directory = os.path.dirname(os.path.abspath(__file__))
+config_path = os.path.join(current_directory, 'config.json')
+
+with open(config_path, 'r') as config_file:
     config = json.load(config_file)
 
 class TextProcessor:
     def __init__(self):
         self.stop_words = set(stopwords.words('english'))
 
-    def preprocess(self, text):
-        tokens = word_tokenize(text.lower())
-        tokens = [word for word in tokens if word.isalpha() and word not in self.stop_words]
-        return tokens
-
     def load_texts_from_folder(self, folder_path):
+        """Load all text files from a given folder."""
         if not os.path.exists(folder_path):
             print(f"Folder {folder_path} does not exist. Exiting.")
             return [], []
@@ -55,13 +48,22 @@ class TextProcessor:
                     print(f"Error reading {file_path}: {e}")
         return texts, file_paths
 
+    def tokenize_text(self, text):
+        return word_tokenize(text.lower())
+
+    def filter_tokens(self, tokens):
+        return [word for word in tokens if word.isalpha() and word not in self.stop_words]
+
     def preprocess_texts(self, texts):
-        # Parallelizing the preprocessing using joblib
-        return Parallel(n_jobs=-1)(delayed(self.preprocess)(text) for text in texts)
+        # Sequential processing instead of parallel
+        tokenized_texts = [self.tokenize_text(text) for text in texts]
+        processed_texts = [self.filter_tokens(tokens) for tokens in tokenized_texts]
+        return processed_texts
 
 class SentimentAnalyzer:
-    def __init__(self, model_name=config['sentiment_model']):
+    def __init__(self, model_name=config['sentiment_model'], temperature=1.0):
         self.sentiment_pipeline = pipeline("sentiment-analysis", model=model_name)
+        self.temperature = temperature
 
     def sliding_window_chunks(self, text, max_length=config['max_length'], stride=config['stride']):
         tokens = self.sentiment_pipeline.tokenizer(text, truncation=True, max_length=max_length, return_tensors='pt')['input_ids'][0]
@@ -75,18 +77,17 @@ class SentimentAnalyzer:
                 break
         return chunks
 
-    def softmax_with_temperature(self, logits, temperature=config['temperature']):
-        logits = logits / temperature
-        return F.softmax(logits, dim=-1)
+    def softmax_with_temperature(self, logits):
+        logits = logits / self.temperature
+        return torch.nn.functional.softmax(logits, dim=-1)
 
     def advanced_sentiment_analysis(self, texts, file_paths):
         all_sentiments, all_files, all_chunks = [], [], []
         for text, file_path in zip(texts, file_paths):
             chunks = self.sliding_window_chunks(text)
             chunk_sentiments = []
-            logits_list = Parallel(n_jobs=-1)(
-                delayed(self.sentiment_pipeline)(chunk, return_all_scores=True)[0] for chunk in chunks)
-            for logits in logits_list:
+            for chunk in chunks:
+                logits = self.sentiment_pipeline(chunk, return_all_scores=True)[0]
                 scores = self.softmax_with_temperature(torch.tensor([score['score'] for score in logits]))
                 chunk_sentiments.append(scores[1].item())
             all_sentiments.extend(chunk_sentiments)
@@ -96,9 +97,9 @@ class SentimentAnalyzer:
 
     def plot_sentiment_scores(self, sentiments, file_paths):
         df_sentiment = pd.DataFrame({'Sentiment Score': sentiments, 'file_path': file_paths})
-        sns.scatterplot(x=range(len(sentiments)), y='Sentiment Score', data=df_sentiment).set(
-            title='Sentiment Scores', xlabel='Document Index', ylabel='Sentiment Score')
-        plt.show()
+        fig_sentiment = px.scatter(df_sentiment, x=range(len(sentiments)), y='Sentiment Score', hover_data=['file_path'])
+        fig_sentiment.update_layout(title='Sentiment Scores', xaxis_title='Document Index', yaxis_title='Sentiment Score')
+        fig_sentiment.show()
 
 class TopicModeler:
     def __init__(self):
@@ -187,16 +188,19 @@ class Plotter:
 class TextAnalysisPipeline:
     def __init__(self):
         self.text_processor = TextProcessor()
-        self.sentiment_analyzer = SentimentAnalyzer()
+        self.sentiment_analyzer = None  # Initialize later with user input
         self.topic_modeler = TopicModeler()
         self.plotter = Plotter()
 
-    def execute_pipeline(self, folder_name='texts'):
+    def execute_pipeline(self, folder_name='texts', temperature=1.0):
         folder_path = os.path.join('.', folder_name)
         texts, file_paths = self.text_processor.load_texts_from_folder(folder_path)
         if not texts:
             print("No texts loaded. Exiting.")
             return
+
+        # Initialize SentimentAnalyzer with user-defined temperature
+        self.sentiment_analyzer = SentimentAnalyzer(temperature=temperature)
 
         processed_texts = self.text_processor.preprocess_texts(texts)
         sentiments, files, chunks = self.sentiment_analyzer.advanced_sentiment_analysis(texts, file_paths)
@@ -221,9 +225,17 @@ def get_user_input():
     folder_name = input("Enter the folder name containing the text files (default is 'texts'): ")
     if not folder_name:
         folder_name = 'texts'
-    return folder_name
+    
+    temp_input = input("Enter the temperature for softmax (default is 1.0): ")
+    try:
+        temperature = float(temp_input) if temp_input else 1.0
+    except ValueError:
+        print("Invalid input for temperature. Using default value 1.0.")
+        temperature = 1.0
+
+    return folder_name, temperature
 
 if __name__ == "__main__":
-    folder_name = get_user_input()
+    folder_name, temperature = get_user_input()
     pipeline = TextAnalysisPipeline()
-    pipeline.execute_pipeline(folder_name)
+    pipeline.execute_pipeline(folder_name, temperature)
